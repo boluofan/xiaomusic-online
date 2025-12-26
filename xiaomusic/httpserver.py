@@ -29,7 +29,6 @@ from fastapi import (
     Depends,
     FastAPI,
     File,
-    Form,
     HTTPException,
     Query,
     Request,
@@ -604,9 +603,9 @@ async def musicinfo(
 
 @app.get("/musicinfos")
 async def musicinfos(
-        name: list[str] = Query(None),
-        musictag: bool = False,
-        Verifcation=Depends(verification),
+    name: list[str] = Query(None),
+    musictag: bool = False,
+    Verifcation=Depends(verification),
 ):
     ret = []
     for music_name in name:
@@ -908,7 +907,7 @@ class PlayListUpdateObj(BaseModel):
 # 修改歌单名字
 @app.post("/playlistupdatename")
 async def playlistupdatename(
-        data: PlayListUpdateObj, Verifcation=Depends(verification)
+    data: PlayListUpdateObj, Verifcation=Depends(verification)
 ):
     ret = xiaomusic.play_list_update_name(data.oldname, data.newname)
     if ret:
@@ -953,7 +952,7 @@ async def playlistdelmusic(data: PlayListMusicObj, Verifcation=Depends(verificat
 # 歌单更新歌曲
 @app.post("/playlistupdatemusic")
 async def playlistupdatemusic(
-        data: PlayListMusicObj, Verifcation=Depends(verification)
+    data: PlayListMusicObj, Verifcation=Depends(verification)
 ):
     ret = xiaomusic.play_list_update_music(data.name, data.music_list)
     if ret:
@@ -974,7 +973,7 @@ async def getplaylist(name: str, Verifcation=Depends(verification)):
 # 更新版本
 @app.post("/updateversion")
 async def updateversion(
-        version: str = "", lite: bool = True, Verifcation=Depends(verification)
+    version: str = "", lite: bool = True, Verifcation=Depends(verification)
 ):
     ret = await update_version(version, lite)
     if ret != "OK":
@@ -1005,7 +1004,7 @@ def access_key_verification(file_path, key, code):
     if key is not None:
         current_key_bytes = key.encode("utf8")
         correct_key_bytes = (
-                config.httpauth_username + config.httpauth_password
+            config.httpauth_username + config.httpauth_password
         ).encode("utf8")
         is_correct_key = secrets.compare_digest(correct_key_bytes, current_key_bytes)
         if is_correct_key:
@@ -1016,7 +1015,7 @@ def access_key_verification(file_path, key, code):
         correct_code_bytes = (
             hashlib.sha256(
                 (
-                        file_path + config.httpauth_username + config.httpauth_password
+                    file_path + config.httpauth_username + config.httpauth_password
                 ).encode("utf-8")
             )
             .hexdigest()
