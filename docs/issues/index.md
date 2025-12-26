@@ -33,6 +33,12 @@ docker run -p 58090:8090 -e XIAOMUSIC_PUBLIC_PORT=58090 -v /xiaomusic_music:/app
 docker run -p 58090:8090 -e XIAOMUSIC_PUBLIC_PORT=58090 -v /xiaomusic_music:/app/music -v /xiaomusic_conf:/app/conf docker.hanxi.cc/hanxi/xiaomusic
 ```
 
+测试版：
+
+```
+docker run -p 58090:8090 -e XIAOMUSIC_PUBLIC_PORT=58090 -v /xiaomusic_music:/app/music -v /xiaomusic_conf:/app/conf hanxi/xiaomusic:main
+```
+
 对应的 docker compose 配置如下：
 
 ```yaml
@@ -67,6 +73,23 @@ services:
       - /xiaomusic_conf:/app/conf
 ```
 
+测试版：
+
+```yaml
+services:
+  xiaomusic:
+    image: hanxi/xiaomusic:main
+    container_name: xiaomusic
+    restart: unless-stopped
+    ports:
+      - 58090:8090
+    environment:
+      XIAOMUSIC_PUBLIC_PORT: 58090
+    volumes:
+      - /xiaomusic_music:/app/music
+      - /xiaomusic_conf:/app/conf
+```
+
 - 其中 conf 目录为配置文件存放目录，music 目录为音乐存放目录，建议分开配置为不同的目录。
 - /xiaomusic_music 和 /xiaomusic_conf 是 docker 所在的主机的目录，可以修改为其他目录。如果报错找不到 /xiaomusic_music 目录，可以先执行 `mkdir -p /xiaomusic_{music,conf}` 命令新建目录。
 - /app/music 和 /app/conf 是 docker 容器里的目录，不要去修改。
@@ -87,6 +110,9 @@ services:
 
 > [!TIP]
 > 作者的另一个适用于 NAS 上安装的开源工具： <https://github.com/hanxi/tiny-nav>
+
+> [!TIP]
+> PVE 移动端 UI 界面：<https://github.com/hanxi/pve-touch>
 
 > [!TIP]
 >
@@ -296,6 +322,7 @@ docker build -t xiaomusic .
 - [一个第三方的主题](https://github.com/DarrenWen/xiaomusicui)
 - [Umami 统计](https://github.com/umami-software/umami)
 - [Sentry 报错监控](https://github.com/getsentry/sentry)
+- [JS在线播放插件](https://github.com/boluofan/xiaomusic-online)
 - 所有帮忙调试和测试的朋友
 - 所有反馈问题和建议的朋友
 

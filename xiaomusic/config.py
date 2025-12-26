@@ -80,6 +80,7 @@ class Device:
     play_type: int = PLAY_TYPE_RND
     cur_music: str = ""
     cur_playlist: str = ""
+    playlist2music: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -151,7 +152,7 @@ class Config:
     )
     keywords_play: str = os.getenv("XIAOMUSIC_KEYWORDS_PLAY", "播放歌曲,放歌曲")
     keywords_search_play: str = os.getenv("XIAOMUSIC_KEYWORDS_SEARCH_PLAY", "搜索播放")
-    keywords_online_play: str = os.getenv("XIAOMUSIC_KEYWORDS_ONLINE_PLAY", "播放,在线播放")
+    keywords_online_play: str = os.getenv("XIAOMUSIC_KEYWORDS_ONLINE_PLAY", "在线播放")
     keywords_stop: str = os.getenv("XIAOMUSIC_KEYWORDS_STOP", "关机,暂停,停止,停止播放")
     keywords_playlist: str = os.getenv(
         "XIAOMUSIC_KEYWORDS_PLAYLIST", "播放列表,播放歌单"
