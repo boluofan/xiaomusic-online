@@ -49,15 +49,15 @@
         }
         .search-btn {
             padding: 10px 20px;
-            background: #31c27c;
-            color: white;
-            border: none;
+            background: #fff;
+            color: #31c27c;
+            border: 1px solid #31c27c;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
         }
         .search-btn:hover {
-            background: #28a869;
+            background: #f0f0f0;
         }
         .results-section {
             padding: 20px;
@@ -104,7 +104,7 @@
             gap: 10px;
             align-items: center;
         }
-        .play-btn {
+        .push-btn {
             padding: 8px 15px;
             background: #1976d2;/*31c27c*/
             color: white;
@@ -113,7 +113,7 @@
             cursor: pointer;
             font-size: 12px;
         }
-        .play-btn:hover {
+        .push-btn:hover {
             background: #1565c0;/*28a869*/
         }
         .web-play-btn {
@@ -394,6 +394,21 @@
             height: 20px;
             fill: white;
         }
+        /*播放全部*/
+        .play-all-btn {
+            padding: 10px 20px;
+            background: #31c27c; /* 与播放按钮颜色一致 31c27c*/
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .play-all-btn:hover {
+            background: #28a869; /* 悬停效果 28a869*/
+        }
+
     </style>
 </head>
 <!-- 返回顶部按钮 -->
@@ -433,6 +448,10 @@
                 <option value="all">所有插件</option>
             </select>
             <button class="search-btn" onclick="searchMusic()">搜索</button>
+            <!-- 新增：全部推送按钮 -->
+            <button class="push-btn" onclick="pushAllMusic()">全部推送</button>
+            <!-- 添加播放全部按钮 -->
+            <button class="play-all-btn" onclick="playAllMusic()">播放全部</button>
         </div>
     </div>
 
@@ -631,7 +650,7 @@
                     </div>
                     <div class="music-actions">
                         <span class="source-tag">${item.platform || 'online'}</span>
-                        <button class="play-btn" onclick="playMusic(${JSON.stringify(item).replace(/"/g, '&quot;')})">播放</button>
+                        <button class="push-btn" onclick="playMusic(${JSON.stringify(item).replace(/"/g, '&quot;')})">设备推送</button>
                         <button class="web-play-btn" onclick="webPlayMusic(${JSON.stringify(item).replace(/"/g, '&quot;')})">网页播放</button>
 
                     </div>
@@ -933,6 +952,97 @@
             });
         }
     }
+
+    // 播放全部音乐
+    async function playAllMusic() {
+        const resultsDiv = document.getElementById('results');
+        const musicItems = resultsDiv.querySelectorAll('.music-item');
+
+        if (musicItems.length === 0) {
+            alert('当前没有搜索结果，无法播放全部');
+            return;
+        }
+
+        const deviceId = getCurrentDeviceId();
+        if (!deviceId || deviceId === '') {
+            alert('请先设置设备!');
+            return;
+        }
+
+        // 获取所有音乐项的数据
+        const mediaItems = [];
+        resultsDiv.querySelectorAll('.play-btn').forEach(btn => {
+            const mediaItem = btn.getAttribute('onclick').match(/playMusic\((.*?)\)/);
+            if (mediaItem) {
+                try {
+                    // 解码并解析 JSON 数据
+                    const decodedData = mediaItem[1].replace(/&quot;/g, '"');
+                    const parsedData = JSON.parse(decodedData);
+                    mediaItems.push(parsedData);
+                } catch (e) {
+                    console.error('解析媒体数据失败:', e);
+                }
+            }
+        });
+
+        if (mediaItems.length === 0) {
+            alert('没有找到可播放的音乐');
+            return;
+        }
+
+        // 批量播放音乐
+        for (let i = 0; i < mediaItems.length; i++) {
+            await playMusic(mediaItems[i]);
+            // 添加短暂延迟以避免请求过于频繁
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
+
+    // 全部推送音乐到设备
+    async function pushAllMusic() {
+        const resultsDiv = document.getElementById('results');
+        const musicItems = resultsDiv.querySelectorAll('.music-item');
+
+        if (musicItems.length === 0) {
+            alert('当前没有搜索结果，无法全部推送');
+            return;
+        }
+
+        const deviceId = getCurrentDeviceId();
+        if (!deviceId || deviceId === '') {
+            alert('请先设置设备!');
+            return;
+        }
+
+        // 获取所有音乐项的数据
+        const mediaItems = [];
+        resultsDiv.querySelectorAll('.play-btn').forEach(btn => {
+            const mediaItem = btn.getAttribute('onclick').match(/playMusic\((.*?)\)/);
+            if (mediaItem) {
+                try {
+                    // 解码并解析 JSON 数据
+                    const decodedData = mediaItem[1].replace(/&quot;/g, '"');
+                    const parsedData = JSON.parse(decodedData);
+                    mediaItems.push(parsedData);
+                } catch (e) {
+                    console.error('解析媒体数据失败:', e);
+                }
+            }
+        });
+
+        if (mediaItems.length === 0) {
+            alert('没有找到可推送的音乐');
+            return;
+        }
+
+        // 批量推送音乐到设备
+        for (let i = 0; i < mediaItems.length; i++) {
+            await playMusic(mediaItems[i]); // playMusic函数已实现设备推送功能
+            // 添加短暂延迟以避免请求过于频繁
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
+
 
 </script>
 </body>
