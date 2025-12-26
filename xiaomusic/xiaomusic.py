@@ -1324,7 +1324,7 @@ class XiaoMusic:
                     return {
                         "success": True,
                         "url": final_url,
-                        "statusCode": response.status,
+                        "statusCode": response.status
                     }
         except Exception as e:
             return {"success": False, "url": url, "error": f"Error occurred: {str(e)}"}
@@ -1436,7 +1436,7 @@ class XiaoMusic:
             "total": len(results),
             "sources": sources,
             "page": page,
-            "limit": limit,
+            "limit": limit
         }
 
     async def _search_specific_plugin(self, plugin, keyword, artist, page, limit):
@@ -1457,7 +1457,7 @@ class XiaoMusic:
                 "data": results.get("data", []),
                 "total": results.get("total", 0),
                 "page": page,
-                "limit": limit,
+                "limit": limit
             }
         except Exception as e:
             self.log.error(f"插件 {plugin} 搜索失败: {e}")
@@ -1488,7 +1488,7 @@ class XiaoMusic:
             music_item=music_item,
             result_key="url",
             required_field="url",
-            **kwargs,
+            **kwargs
         )
 
     # 调用MusicFree插件获取歌词
@@ -1504,7 +1504,7 @@ class XiaoMusic:
             method_name="get_lyric",
             music_item=music_item,
             result_key="rawLrc",
-            required_field="rawLrc",
+            required_field="rawLrc"
         )
 
     # 调用在线搜索歌曲，并优化返回
@@ -1540,13 +1540,18 @@ class XiaoMusic:
                 # 如果是OpenAPI，则需要转换播放链接
                 openapi_info = self.js_plugin_manager.get_openapi_info()
                 if openapi_info.get("enabled", False):
-                    return await self.get_real_url_of_openapi(music_item.get("url"))
+                    # return await self.get_real_url_of_openapi(music_item.get('url'))
+                    media_source = await self.get_real_url_of_openapi(music_item.get('url'))
                 else:
                     media_source = await self.get_media_source_url(music_item)
-                    if media_source.get("success"):
-                        return {"success": True, "url": media_source.get("url")}
-                    else:
-                        return {"success": False, "error": media_source.get("error")}
+                if media_source.get('success'):
+                    # 将url重置为真实url
+                    # return {"success": True, "url": media_source.get('url')}
+                    music_item["success"] = True
+                    music_item["url"] = media_source.get('url')
+                    return music_item
+                else:
+                    return {"success": False, "error": media_source.get('error')}
             else:
                 return {"success": False, "error": "未找到歌曲"}
 
@@ -1739,7 +1744,9 @@ class XiaoMusic:
         result = await self.search_music_online(search_key, name)
         # 搜索成功，则直接推送url播放
         if result.get("success", False):
+            self.log.info(f"在线搜索到歌曲，result: {result}")
             url = result.get("url", "")
+            name = result.get("title", "")+"-"+result.get("artist", "")
             # 播放歌曲
             await self.devices[did].play_music(name, true_url=url)
 
