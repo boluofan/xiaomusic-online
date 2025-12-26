@@ -5,8 +5,6 @@ JS 插件适配器
 """
 
 import logging
-from typing import Dict, List, Any, Optional
-from urllib.parse import urlparse
 
 
 class JSAdapter:
@@ -134,8 +132,7 @@ class JSAdapter:
         if not artist_works_result:
             return {}
 
-        formatted = {
-        }
+        formatted = {}
 
         return formatted
 
