@@ -1202,7 +1202,7 @@ class XiaoMusic:
 
     # 播放一个 url
     async def play_url(self, did="", arg1="", **kwargs):
-        self.log.info(f"手动播放链接：{arg1}")
+        self.log.info(f"手动推送链接：{arg1}")
         url = arg1
         return await self.devices[did].group_player_play(url)
 
@@ -1778,9 +1778,10 @@ class XiaoMusic:
             proxy_base = f"{config.hostname}:{config.public_port}"
         else:
             proxy_base = "http://192.168.31.241:8090"
-        search_audio = proxy_base + "/static/search.mp3"
-        proxy_base + "/static/silence.mp3"
-        await self.play_url(self.get_cur_did(), search_audio)
+        # 改为静音
+        # search_audio = proxy_base + "/static/search.mp3"
+        silence_audio = proxy_base + "/static/silence.mp3"
+        await self.play_url(self.get_cur_did(), silence_audio)
 
         # TODO 添加一个定时器，4秒后触发
 
