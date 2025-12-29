@@ -198,6 +198,24 @@ class JSPluginManager:
 
     """------------------------------开放接口相关函数----------------------------------------"""
 
+    def get_aiapi_info(self) -> dict[str, Any]:
+        """获取AI接口配置信息
+        Returns:
+            Dict[str, Any]: 包含 OpenAPI 配置信息的字典，包括启用状态和搜索 URL
+        """
+        try:
+            # 读取配置文件中的 OpenAPI 配置信息
+            if os.path.exists(self.plugins_config_path):
+                with open(self.plugins_config_path, encoding="utf-8") as f:
+                    config_data = json.load(f)
+                # 返回 openapi_info 配置项
+                return config_data.get("aiapi_info", {})
+            else:
+                return {"enabled": False}
+        except Exception as e:
+            self.log.error(f"Failed to read OpenAPI info from config: {e}")
+            return {}
+
     def get_openapi_info(self) -> dict[str, Any]:
         """获取开放接口配置信息
         Returns:
@@ -479,12 +497,13 @@ class JSPluginManager:
                 )
         return result_data
 
-    async def openapi_search(self, url: str, keyword: str, limit: int = 10):
+    async def openapi_search(self, url: str, keyword: str, artist: str, limit: int = 20):
         """直接调用在线接口进行音乐搜索
 
         Args:
             url (str): 在线搜索接口地址
-            keyword (str): 搜索关键词，支持： 歌曲名-歌手名 搜索
+            keyword (str): 搜索关键词，歌名/歌手名
+            artist (str): 搜索的歌手名，可能为空
             limit (int): 每页数量，默认为5
         Returns:
             Dict[str, Any]: 搜索结果，数据结构与search函数一致
@@ -494,13 +513,6 @@ class JSPluginManager:
         import aiohttp
 
         try:
-            # 如果关键词包含 '-'，则提取歌手名、歌名
-            if "-" in keyword:
-                parts = keyword.split("-")
-                keyword = parts[0]
-                artist = parts[1]
-            else:
-                artist = ""
             # 构造请求参数
             params = {"type": "aggregateSearch", "keyword": keyword, "limit": limit}
             # 使用aiohttp发起异步HTTP GET请求
@@ -552,6 +564,7 @@ class JSPluginManager:
             # 返回统一格式的数据
             return {
                 "success": True,
+                "isOpenAPI": True,
                 "data": results,
                 "total": len(results),
                 "sources": {"OpenAPI": len(results)},
@@ -563,6 +576,7 @@ class JSPluginManager:
             self.log.error(f"OpenAPI search timeout at URL {url}: {e}")
             return {
                 "success": False,
+                "isOpenAPI": True,
                 "error": f"OpenAPI search timeout: {str(e)}",
                 "data": [],
                 "total": 0,
@@ -574,6 +588,7 @@ class JSPluginManager:
             self.log.error(f"OpenAPI search error at URL {url}: {e}")
             return {
                 "success": False,
+                "isOpenAPI": True,
                 "error": f"OpenAPI search error: {str(e)}",
                 "data": [],
                 "total": 0,
