@@ -1,4 +1,4 @@
-FROM hanxi/xiaomusic:builder AS builder
+FROM boluofandocker/xiaomusic-online:builder AS builder
 
 RUN pip install -U pdm
 ENV PDM_CHECK_UPDATE=false
