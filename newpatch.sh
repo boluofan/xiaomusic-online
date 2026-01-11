@@ -4,7 +4,9 @@
 ./update-holiday.sh
 git add xiaomusic/static
 git commit -m 'build: update static version'
+git pull --rebase
 
 cz bump --check-consistency --increment patch
 
-git push -u origin main --tags
+git push
+git push --tags

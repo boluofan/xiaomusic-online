@@ -32,6 +32,7 @@ class JSPluginManager:
         self._lock = threading.Lock()
         self.request_id = 0
         self.pending_requests = {}
+        self._is_shutting_down = False  # 添加关闭标志
 
         # 启动 Node.js 子进程
         self._start_node_process()
@@ -75,9 +76,12 @@ class JSPluginManager:
     def _monitor_node_process(self):
         """监控 Node.js 进程状态"""
         while True:
+            if self._is_shutting_down:
+                break
             if self.node_process and self.node_process.poll() is not None:
-                self.log.warning("Node.js process died, restarting...")
-                self._start_node_process()
+                if not self._is_shutting_down:
+                    self.log.warning("Node.js process died, restarting...")
+                    self._start_node_process()
             time.sleep(5)
 
     def _start_message_handler(self):
@@ -573,6 +577,8 @@ class JSPluginManager:
             # 转换数据格式以匹配插件系统的期望格式
             converted_data = []
             for item in results:
+                url = item.get("url", "")
+                self.log.info(f"openapi_search url: {url}")
                 converted_item = {
                     "id": item.get("id", ""),
                     "title": item.get("name", ""),
@@ -580,7 +586,9 @@ class JSPluginManager:
                     "album": item.get("album", ""),
                     "platform": "OpenAPI-" + item.get("platform"),
                     "isOpenAPI": True,
-                    "url": self.xiaomusic.get_openapi_proxy_url(item.get("url", "")),
+                    "url": self.xiaomusic._online_music_service._get_openapi_proxy_url(
+                        url
+                    ),
                     "artwork": item.get("pic", ""),
                     "lrc": item.get("lrc", ""),
                 }

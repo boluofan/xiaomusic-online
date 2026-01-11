@@ -4,7 +4,10 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.cron import CronTrigger
 
-from xiaomusic.holiday import is_off_day, is_working_day
+from xiaomusic.holiday import (
+    is_off_day,
+    is_working_day,
+)
 
 
 class CustomCronTrigger(BaseTrigger):
@@ -137,6 +140,14 @@ class Crontab:
                 xiaomusic.config.enable_pull_ask = True
             else:
                 xiaomusic.config.enable_pull_ask = False
+
+        self.add_job(expression, job)
+
+    # 更新网络歌单
+    def add_job_refresh_web_music_list(self, expression, xiaomusic, **kwargs):
+        async def job():
+            await xiaomusic.refresh_web_music_list()
+            await xiaomusic.gen_music_list()
 
         self.add_job(expression, job)
 

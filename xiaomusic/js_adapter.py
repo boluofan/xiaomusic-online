@@ -46,7 +46,7 @@ class JSAdapter:
             }
 
             # 添加到 all_music 字典中
-            self.xiaomusic.all_music[music_id] = music_item
+            self.xiaomusic._music_library.all_music[music_id] = music_item
             formatted_ids.append(music_id)
 
         return formatted_ids
@@ -89,18 +89,17 @@ class JSAdapter:
         if not album_info_result:
             return {}
 
+        album_item = album_info_result.get("albumItem", {})
         formatted = {
             "isEnd": album_info_result.get("isEnd", True),
             "musicList": self.format_search_results(
                 album_info_result.get("musicList", []), "album"
             ),
             "albumItem": {
-                "title": album_info_result.get("albumItem", {}).get("title", ""),
-                "artist": album_info_result.get("albumItem", {}).get("artist", ""),
-                "cover": album_info_result.get("albumItem", {}).get("cover", ""),
-                "description": album_info_result.get("albumItem", {}).get(
-                    "description", ""
-                ),
+                "title": album_item.get("title", ""),
+                "artist": album_item.get("artist", ""),
+                "cover": album_item.get("cover", ""),
+                "description": album_item.get("description", ""),
             },
         }
 
@@ -110,18 +109,16 @@ class JSAdapter:
         """格式化音乐单信息结果"""
         if not music_sheet_result:
             return {}
-
+        sheet_item = music_sheet_result.get("sheetItem", {})
         formatted = {
             "isEnd": music_sheet_result.get("isEnd", True),
             "musicList": self.format_search_results(
                 music_sheet_result.get("musicList", []), "playlist"
             ),
             "sheetItem": {
-                "title": music_sheet_result.get("sheetItem", {}).get("title", ""),
-                "cover": music_sheet_result.get("sheetItem", {}).get("cover", ""),
-                "description": music_sheet_result.get("sheetItem", {}).get(
-                    "description", ""
-                ),
+                "title": sheet_item.get("title", ""),
+                "cover": sheet_item.get("cover", ""),
+                "description": sheet_item.get("description", ""),
             },
         }
 
@@ -189,22 +186,23 @@ class JSAdapter:
         artist_fields = ["artist", "artists", "singer", "author", "creator", "singers"]
 
         for field in artist_fields:
-            if field in item:
-                value = item[field]
-                if isinstance(value, list):
-                    # 如果是艺术家列表，连接为字符串
-                    artists = []
-                    for artist in value:
-                        if isinstance(artist, dict):
-                            artists.append(artist.get("name", str(artist)))
-                        else:
-                            artists.append(str(artist))
-                    return ", ".join(artists)
-                elif isinstance(value, dict):
-                    # 如果是艺术家对象
-                    return value.get("name", str(value))
-                elif value:
-                    return str(value)
+            if field not in item:
+                continue
+            value = item[field]
+            if isinstance(value, list):
+                # 如果是艺术家列表，连接为字符串
+                artists = []
+                for artist in value:
+                    if isinstance(artist, dict):
+                        artists.append(artist.get("name", str(artist)))
+                    else:
+                        artists.append(str(artist))
+                return ", ".join(artists)
+            elif isinstance(value, dict):
+                # 如果是艺术家对象
+                return value.get("name", str(value))
+            elif value:
+                return str(value)
 
         # 如果没有找到艺术家信息，返回默认值
         return "未知艺术家"

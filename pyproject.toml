@@ -1,6 +1,6 @@
 [project]
 name = "xiaomusic"
-version = "0.3.102"
+version = "0.4.5"
 description = "Play Music with xiaomi AI speaker"
 authors = [
 {name = "涵曦", email = "im.hanxi@gmail.com"},
@@ -21,7 +21,6 @@ dependencies = [
     "python-multipart>=0.0.12",
     "requests>=2.32.3",
     "sentry-sdk[fastapi]==1.45.1",
-    "python-socketio>=5.12.1",
     "pyjwt>=2.10.1",
     "fake-useragent>=2.2.0",
     "miservice-fork",
