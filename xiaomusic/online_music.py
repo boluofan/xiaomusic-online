@@ -144,7 +144,7 @@ class OnlineMusicService:
         openapi_result = self._handle_search_exception(openapi_result, "OpenAPI")
 
         # 合并结果
-        combined_result = self._merge_search_results(plugin_result, openapi_result)
+        combined_result = self._merge_search_results(plugin_result, openapi_result, keyword, artist, limit)
         combined_result["artist"] = artist or "佚名"
         return combined_result
 
@@ -179,7 +179,7 @@ class OnlineMusicService:
         result_data["artist"] = artist or "佚名"
         return result_data
 
-    def _merge_search_results(self, plugin_result, openapi_result):
+    def _merge_search_results(self, plugin_result, openapi_result, keyword, artist, limit):
         merged_data = []
         sources = {}
 
@@ -214,12 +214,8 @@ class OnlineMusicService:
 
         # 优化合并后的结果
         optimized_result = self.js_plugin_manager.optimize_search_results(
-            {"data": merged_data},
-            search_keyword=plugin_result.get(
-                "artist", ""
-            ),  # 使用从关键词解析出的artist
-            limit=20,  # 默认限制
-            search_artist=plugin_result.get("artist", ""),
+            {"data": merged_data},search_keyword=keyword,
+            limit=limit, search_artist=artist
         )
 
         return {
@@ -341,7 +337,8 @@ class OnlineMusicService:
                     song_name = result.get("name", "")
                     artist = result.get("artist", "")
                     # 构建新的关键词
-                    keyword = _build_keyword(song_name, artist)
+                    # keyword = _build_keyword(song_name, artist)
+                    keyword = song_name
                     self.log.info(f"AI提取到的信息: {result}")
                     return keyword, artist
 
