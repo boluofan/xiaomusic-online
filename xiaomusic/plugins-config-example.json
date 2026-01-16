@@ -1,6 +1,7 @@
 {
   "account": "",
   "password": "",
+  "auto_add_song": true,
   "openapi_info": {
     "search_url": "",
     "enabled": false
