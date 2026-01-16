@@ -129,12 +129,7 @@ class JSAdapter:
         if not artist_works_result:
             return {}
 
-        formatted = {
-            "isEnd": artist_works_result.get("isEnd", True),
-            "data": self.format_search_results(
-                artist_works_result.get("data", []), "artist"
-            ),
-        }
+        formatted = {}
 
         return formatted
 
