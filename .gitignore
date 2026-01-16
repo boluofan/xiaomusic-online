@@ -170,7 +170,6 @@ setting.json
 cache
 tmp/
 xiaomusic.log.txt*
-node_modules
 reference/
 .aone_copilot/
 .idea/
@@ -182,3 +181,4 @@ reference/
 /功能描述.md
 /.backup_local/
 js_plugins/
+/node_modules/
