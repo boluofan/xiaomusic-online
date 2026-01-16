@@ -174,5 +174,11 @@ node_modules
 reference/
 .aone_copilot/
 .idea/
+/.github/
+/Dockerfile
+/Dockerfile.builder
+/Dockerfile.runtime
+/业务流程图.md
+/功能描述.md
+/.backup_local/
 js_plugins/
-reference/
