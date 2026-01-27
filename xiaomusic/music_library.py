@@ -159,7 +159,7 @@ class MusicLibrary:
 
         # 歌单排序
         for list_name, play_list in self.music_list.items():
-            if not self.is_online_music(list_name):
+            if not self.is_online_music(list_name) and len(play_list) > 0:
                 play_list.sort(key=custom_sort_key)
 
         # 非自定义歌单
