@@ -45,10 +45,6 @@ class MusicLibrary:
         self,
         config,
         log,
-        music_path,
-        download_path,
-        music_path_depth,
-        exclude_dirs,
         event_bus=None,
     ):
         """初始化音乐库
@@ -56,18 +52,10 @@ class MusicLibrary:
         Args:
             config: 配置对象
             log: 日志对象
-            music_path: 音乐目录路径
-            download_path: 下载目录路径
-            music_path_depth: 音乐目录扫描深度
-            exclude_dirs: 排除的目录列表
             event_bus: 事件总线对象（可选）
         """
         self.config = config
         self.log = log
-        self.music_path = music_path
-        self.download_path = download_path
-        self.music_path_depth = music_path_depth
-        self.exclude_dirs = exclude_dirs
         self.event_bus = event_bus
 
         # 音乐库数据
@@ -100,10 +88,11 @@ class MusicLibrary:
         all_music_by_dir = {}
 
         # 扫描本地音乐目录
+        exclude_dirs_set = self.config.get_exclude_dirs_set()
         local_musics = traverse_music_directory(
-            self.music_path,
-            depth=self.music_path_depth,
-            exclude_dirs=self.exclude_dirs,
+            self.config.music_path,
+            depth=self.config.music_path_depth,
+            exclude_dirs=exclude_dirs_set,
             support_extension=SUPPORT_MUSIC_TYPE,
         )
 
@@ -112,10 +101,11 @@ class MusicLibrary:
                 continue
 
             # 处理目录名称
-            if dir_name == os.path.basename(self.music_path):
+            if dir_name == os.path.basename(self.config.music_path):
                 dir_name = "其他"
-            if self.music_path != self.download_path and dir_name == os.path.basename(
-                self.download_path
+            if (
+                self.config.music_path != self.config.download_path
+                and dir_name == os.path.basename(self.config.download_path)
             ):
                 dir_name = "下载"
 
@@ -133,7 +123,6 @@ class MusicLibrary:
         # 初始化播放列表（使用 OrderedDict 保持顺序）
         self.music_list = OrderedDict(
             {
-                "临时搜索列表": [],
                 "所有歌曲": [],
                 "所有电台": [],
                 "收藏": [],
@@ -180,10 +169,10 @@ class MusicLibrary:
 
         # 重建索引
         self._extra_index_search = {}
-        for k, v in self.all_music.items():
-            # 如果不是 url，则增加索引
-            if not (v.startswith("http") or v.startswith("https")):
-                self._extra_index_search[v] = k
+        for name, filepath in self.all_music.items():
+            # 如果不是 radio，则增加索引
+            if not self.is_web_radio_music(name):
+                self._extra_index_search[filepath] = name
 
         # all_music 更新，重建 tag（仅在事件循环启动后才会执行）
         self.try_gen_all_music_tag()
@@ -502,27 +491,25 @@ class MusicLibrary:
             n=n,
             extra_search_index=self._extra_index_search,
         )
+        if not real_names:
+            self.log.info(f"没找到歌曲【{name}】")
+            return []
+        self.log.info(f"根据【{name}】找到歌曲【{real_names}】")
+        if name in real_names:
+            return [name]
 
-        if real_names:
-            if n > 1 and name not in real_names:
-                # 模糊匹配模式，扩大范围再找，最后保留随机 n 个
-                real_names = find_best_match(
-                    name,
-                    all_music_list,
-                    cutoff=self.config.fuzzy_match_cutoff,
-                    n=n * 2,
-                    extra_search_index=self._extra_index_search,
-                )
-                random.shuffle(real_names)
-                real_names = real_names[:n]
-            elif name in real_names:
-                # 可以精确匹配，限制只返回一个（保证网页端播放可用）
-                real_names = [name]
-            self.log.info(f"根据【{name}】找到歌曲【{real_names}】")
-            return real_names
-
+        # 音乐不在查找结果同时n大于1, 模糊匹配模式，扩大范围再找，最后保留随机 n 个
+        if n > 1:
+            real_names = find_best_match(
+                name,
+                all_music_list,
+                cutoff=self.config.fuzzy_match_cutoff,
+                n=n * 2,
+                extra_search_index=self._extra_index_search,
+            )
+            random.shuffle(real_names)
         self.log.info(f"没找到歌曲【{name}】")
-        return []
+        return real_names[:n]
 
     def find_real_music_list_name(self, list_name):
         """模糊搜索播放列表名称
@@ -979,22 +966,6 @@ class MusicLibrary:
 
     # ==================== URL处理方法 ====================
 
-    async def get_music_sec_url(self, name, cur_playlist):
-        """获取歌曲播放时长和播放地址
-
-        Args:
-            name: 歌曲名称
-            cur_playlist: 当前歌单名称
-        Returns:
-            tuple: (播放时长(秒), 播放地址)
-        """
-        url, origin_url = await self.get_music_url(name)
-        self.log.info(
-            f"get_music_sec_url. name:{name} url:{url} origin_url:{origin_url}"
-        )
-        sec = await self.get_music_duration(name)
-        return sec, url
-
     async def get_music_url(self, name):
         """获取音乐播放地址
 
@@ -1030,7 +1001,9 @@ class MusicLibrary:
 
         # 是否需要代理
         if self.config.web_music_proxy or url.startswith("self://"):
-            proxy_url = self._get_proxy_url(url)
+            # 判断是否为电台，传入 radio 参数
+            is_radio = self.is_web_radio_music(name)
+            proxy_url = self._get_proxy_url(url, is_radio=is_radio)
             return proxy_url, url
 
         return url, None
@@ -1048,22 +1021,24 @@ class MusicLibrary:
         headers = self._web_music_api[name].get("headers", {})
         url = await self.url_cache.get(url, headers, self.config)
         if not url:
-            self.log.error(f"get_music_url use api fail. name:{name}, url:{url}")
+            self.log.error(f"_get_url_from_api use api fail. name:{name}, url:{url}")
         return url
 
-    def _get_proxy_url(self, origin_url):
+    def _get_proxy_url(self, origin_url, is_radio=None):
         """获取代理URL
 
         Args:
             origin_url: 原始URL
+            is_radio: 是否为电台直播流
 
         Returns:
             str: 代理URL
         """
         urlb64 = base64.b64encode(origin_url.encode("utf-8")).decode("utf-8")
-        proxy_url = (
-            f"{self.config.hostname}:{self.config.public_port}/proxy?urlb64={urlb64}"
-        )
+
+        # 使用路径参数方式，避免查询参数转义问题
+        proxy_type = "radio" if is_radio else "music"
+        proxy_url = f"{self.config.hostname}:{self.config.public_port}/proxy/{proxy_type}?urlb64={urlb64}"
         self.log.info(f"Using proxy url: {proxy_url}")
         return proxy_url
 

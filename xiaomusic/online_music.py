@@ -269,7 +269,9 @@ class OnlineMusicService:
             # 解析歌手名，可能通过AI或直接分割
             parsed_keyword, parsed_artist = await self._parse_keyword_with_ai(name)
             list_name = "_online_" + parsed_artist
-            artist_song_list = self.xiaomusic.get_music_list().get(list_name, [])
+            artist_song_list = self.xiaomusic.music_library.get_music_list().get(
+                list_name, []
+            )
             if len(artist_song_list) > 0:
                 # 如果歌单存在，则直接播放
                 song_name = artist_song_list[0]
@@ -375,7 +377,7 @@ class OnlineMusicService:
             converted_music_list = self._convert_song_list_to_music_items(song_list)
             if not converted_music_list:
                 return {"success": False, "error": "没有有效的歌曲可以添加"}
-            music_library = self.xiaomusic._music_library
+            music_library = self.xiaomusic.music_library
             # 更新配置中的音乐歌单Json
             music_library.update_music_list_json(
                 list_name, converted_music_list, append
@@ -440,7 +442,7 @@ class OnlineMusicService:
             if did != "web_device" and self.xiaomusic.did_exist(did):
                 # 歌单推送应该是全部播放，不随机打乱
                 await self.xiaomusic.set_play_type(did, PLAY_TYPE_ALL, False)
-                push_playlist = self.xiaomusic.get_music_list()[list_name]
+                push_playlist = self.xiaomusic.music_library.get_music_list()[list_name]
                 song_name = push_playlist[0]
                 await self.xiaomusic.do_play_music_list(did, list_name, song_name)
                 return {

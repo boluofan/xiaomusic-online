@@ -30,7 +30,7 @@ router = APIRouter(dependencies=[Depends(verification)])
 @router.get("/searchmusic")
 def searchmusic(name: str = ""):
     """搜索音乐"""
-    return xiaomusic.searchmusic(name)
+    return xiaomusic.music_library.searchmusic(name)
 
 
 """======================在线搜索相关接口============================="""
@@ -81,7 +81,7 @@ async def get_plugin_source_url(
         # 将json字符串转换为json对象
         json_data = json.loads(json_str)
         # 调用公共函数处理
-        media_source = await xiaomusic._online_music_service.get_media_source_url(
+        media_source = await xiaomusic.online_music_service.get_media_source_url(
             json_data
         )
         if media_source and media_source.get("url"):
@@ -129,7 +129,7 @@ async def get_media_source(request: Request):
         # 获取请求数据
         data = await request.json()
         # 调用公共函数处理
-        return await xiaomusic._online_music_service.get_media_source_url(data)
+        return await xiaomusic.online_music_service.get_media_source_url(data)
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -209,20 +209,20 @@ def playingmusic(did: str = ""):
 @router.get("/musiclist")
 async def musiclist():
     """音乐列表"""
-    return xiaomusic.get_music_list()
+    return xiaomusic.music_library.get_music_list()
 
 
 @router.get("/musicinfo")
 async def musicinfo(name: str, musictag: bool = False):
     """音乐信息"""
-    url, _ = await xiaomusic._music_library.get_music_url(name)
+    url, _ = await xiaomusic.music_library.get_music_url(name)
     info = {
         "ret": "OK",
         "name": name,
         "url": url,
     }
     if musictag:
-        info["tags"] = await xiaomusic._music_library.get_music_tags(name)
+        info["tags"] = await xiaomusic.music_library.get_music_tags(name)
     return info
 
 
@@ -234,13 +234,13 @@ async def musicinfos(
     """批量音乐信息"""
     ret = []
     for music_name in name:
-        url, _ = await xiaomusic._music_library.get_music_url(music_name)
+        url, _ = await xiaomusic.music_library.get_music_url(music_name)
         info = {
             "name": music_name,
             "url": url,
         }
         if musictag:
-            info["tags"] = await xiaomusic._music_library.get_music_tags(music_name)
+            info["tags"] = await xiaomusic.music_library.get_music_tags(music_name)
         ret.append(info)
     return ret
 
@@ -248,7 +248,7 @@ async def musicinfos(
 @router.post("/setmusictag")
 async def setmusictag(info: MusicInfoObj):
     """设置音乐标签"""
-    ret = xiaomusic._music_library.set_music_tag(info.musicname, info)
+    ret = xiaomusic.music_library.set_music_tag(info.musicname, info)
     return {"ret": ret}
 
 
@@ -277,7 +277,7 @@ async def playmusic(data: DidPlayMusic):
 @router.post("/refreshmusictag")
 async def refreshmusictag(Verifcation=Depends(verification)):
     """刷新音乐标签"""
-    xiaomusic._music_library.refresh_music_tag()
+    xiaomusic.music_library.refresh_music_tag()
     return {
         "ret": "OK",
     }

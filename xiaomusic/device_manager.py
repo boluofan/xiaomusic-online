@@ -6,8 +6,13 @@
 - 设备信息查询
 """
 
+from typing import TYPE_CHECKING, Optional
+
 from xiaomusic.device_player import XiaoMusicDevice
 from xiaomusic.utils.text_utils import parse_str_to_dict
+
+if TYPE_CHECKING:
+    from xiaomusic.xiaomusic import XiaoMusic
 
 
 class DeviceManager:
@@ -16,7 +21,7 @@ class DeviceManager:
     负责管理小米音箱设备列表、分组和设备信息查询。
     """
 
-    def __init__(self, config, log, xiaomusic=None):
+    def __init__(self, config, log, xiaomusic: Optional["XiaoMusic"] = None):
         """初始化设备管理器
 
         Args:
@@ -29,7 +34,7 @@ class DeviceManager:
         self.xiaomusic = xiaomusic
 
         # 设备相关数据结构
-        self.devices = {}  # key 为 did，value 为 XiaoMusicDevice 实例
+        self.devices: dict[str, XiaoMusicDevice] = {}
         self.device_id_did = {}  # device_id 到 did 的映射
         self.groups = {}  # 设备分组，key 为组名，value 为 device_id 列表
 
@@ -136,7 +141,7 @@ class DeviceManager:
         await auth_manager.try_update_device_id()
         self._update_devices()
 
-    def set_devices(self, devices):
+    def set_devices(self, devices: dict[str, XiaoMusicDevice]):
         """设置设备实例字典
 
         这个方法用于在主类中设置实际的设备实例。
