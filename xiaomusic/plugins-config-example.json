@@ -6,6 +6,25 @@
     "search_url": "",
     "enabled": false
   },
-  "enabled_plugins": [],
-  "plugins_info": []
+  "lx_plugins_config": {
+    "example_lx_plugin": {
+      "enabled_sources": ["tx", "wy", "kg", "kw", "mg"],
+      "default_source": "tx",
+      "search_mode": "all"
+    },
+    "溯音音源v1": {
+      "enabled_sources": ["tx", "wy", "kw", "mg"],
+      "default_source": "tx",
+      "search_mode": "all"
+    }
+  },
+  "enabled_plugins": ["溯音音源v1"],
+  "plugins_info": [
+    {
+      "name": "溯音音源v1",
+      "version": "1.0",
+      "description": "集成QQ、网易、酷我、咪咕音乐平台",
+      "enabled": true
+    }
+  ]
 }

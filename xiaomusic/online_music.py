@@ -59,6 +59,19 @@ class OnlineMusicService:
         self.js_plugin_manager = js_plugin_manager
         self.xiaomusic = xiaomusic_instance
 
+        # 尝试初始化统一插件管理器
+        try:
+            from xiaomusic.unified_plugin_manager import UnifiedPluginManager
+            # 从xiaomusic实例获取配置路径
+            config_path = getattr(xiaomusic_instance, 'config', None)
+            if config_path and hasattr(config_path, 'conf_path'):
+                self.unified_plugin_manager = UnifiedPluginManager(config_path.conf_path, log=log)
+            else:
+                self.unified_plugin_manager = UnifiedPluginManager(log=log)
+        except Exception as e:
+            self.log.error(f"Failed to initialize Unified Plugin Manager: {e}")
+            self.unified_plugin_manager = None
+
     async def get_music_list_online(
         self, plugin="all", keyword="", page=1, limit=20, **kwargs
     ):
@@ -233,9 +246,9 @@ class OnlineMusicService:
     async def get_music_list_mf(
         self, plugin="all", keyword="", artist="", page=1, limit=20, **kwargs
     ):
-        self.log.info("通过MusicFree插件搜索音乐列表!")
+        self.log.info("通过MusicFree插件或洛雪插件搜索音乐列表!")
         """
-        通过MusicFree插件搜索音乐列表
+        通过MusicFree插件或洛雪插件搜索音乐列表
 
         Args:
             plugin: 插件名称，"all"表示所有插件
@@ -247,17 +260,17 @@ class OnlineMusicService:
         Returns:
             dict: 搜索结果
         """
-        # 检查JS插件管理器是否可用
-        if not self.js_plugin_manager:
-            return {"success": False, "error": "JS插件管理器不可用"}
+        # 检查插件管理器是否可用
+        if not self.js_plugin_manager and not self.unified_plugin_manager:
+            return {"success": False, "error": "插件管理器不可用"}
         try:
             if plugin == "all":
-                # 搜索所有启用的插件
-                return await self._search_all_plugins(keyword, artist, page, limit)
+                # 搜索所有启用的插件（包括洛雪插件）
+                return await self._search_all_plugins_with_lx(keyword, artist, page, limit, **kwargs)
             else:
                 # 搜索指定插件
-                return await self._search_specific_plugin(
-                    plugin, keyword, artist, page, limit
+                return await self._search_specific_plugin_with_lx(
+                    plugin, keyword, artist, page, limit, **kwargs
                 )
         except Exception as e:
             self.log.error(f"搜索音乐时发生错误: {e}")
@@ -535,75 +548,89 @@ class OnlineMusicService:
         self.log.info(f"plugin_source_url : {plugin_source_url}")
         return plugin_source_url
 
-    async def _search_all_plugins(self, keyword, artist, page, limit):
-        """搜索所有启用的插件
+    async def _search_all_plugins_with_lx(self, keyword, artist, page, limit, **kwargs):
+        """搜索所有启用的插件（包括洛雪插件）
 
         Args:
             keyword: 搜索关键词
             artist: 艺术家名称
             page: 页码
             limit: 每页数量
+            **kwargs: 其他参数
 
         Returns:
             dict: 搜索结果
         """
-        enabled_plugins = self.js_plugin_manager.get_enabled_plugins()
-        if not enabled_plugins:
-            return {"success": False, "error": "没有可用的接口和插件，请先进行配置！"}
-
+        # 获取所有插件（包括洛雪插件）的搜索结果
         results = []
         sources = {}
 
-        # 计算每个插件的限制数量
-        plugin_count = len(enabled_plugins)
-        item_limit = max(1, limit // plugin_count) if plugin_count > 0 else limit
+        # 首先检查统一插件管理器是否可用
+        if self.unified_plugin_manager:
+            # 使用统一插件管理器搜索所有插件
+            all_results = await self.unified_plugin_manager.search_all(keyword, page, limit, **kwargs)
+            for plugin_name, plugin_result in all_results.items():
+                if plugin_result and isinstance(plugin_result, list):
+                    results.extend(plugin_result)
+                    sources[plugin_name] = len(plugin_result)
+        else:
+            # 如果统一插件管理器不可用，使用旧的搜索方法
+            enabled_plugins = self.js_plugin_manager.get_enabled_plugins()
+            if not enabled_plugins:
+                return {"success": False, "error": "没有可用的接口和插件，请先进行配置！"}
 
-        # 并行搜索所有插件
-        search_tasks = [
-            self._search_plugin_task(plugin_name, keyword, page, item_limit)
-            for plugin_name in enabled_plugins
-        ]
+            # 计算每个插件的限制数量
+            plugin_count = len(enabled_plugins)
+            item_limit = max(1, limit // plugin_count) if plugin_count > 0 else limit
 
-        plugin_results = await asyncio.gather(*search_tasks, return_exceptions=True)
+            # 并行搜索所有插件
+            search_tasks = [
+                self._search_plugin_task(plugin_name, keyword, page, item_limit)
+                for plugin_name in enabled_plugins
+            ]
 
-        # 处理搜索结果
-        for i, result in enumerate(plugin_results):
-            plugin_name = list(enabled_plugins)[i]
+            plugin_results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
-            # 检查是否为异常对象
-            if isinstance(result, Exception):
-                self.log.error(f"插件 {plugin_name} 搜索失败: {result}")
-                continue
+            # 处理搜索结果
+            for i, result in enumerate(plugin_results):
+                plugin_name = list(enabled_plugins)[i]
 
-            # 检查是否为有效的搜索结果
-            if result and isinstance(result, dict):
-                # 检查是否有错误信息
-                if "error" in result:
-                    self.log.error(
-                        f"插件 {plugin_name} 搜索失败: {result.get('error', '未知错误')}"
-                    )
+                # 检查是否为异常对象
+                if isinstance(result, Exception):
+                    self.log.error(f"插件 {plugin_name} 搜索失败: {result}")
                     continue
 
-                # 处理成功的搜索结果
-                data_list = result.get("data", [])
-                if data_list:
-                    results.extend(data_list)
-                    sources[plugin_name] = len(data_list)
-                # 如果没有data字段但有其他数据，也认为是成功的结果
-                elif result:  # 非空字典
-                    results.append(result)
-                    sources[plugin_name] = 1
+                # 检查是否为有效的搜索结果
+                if result and isinstance(result, dict):
+                    # 检查是否有错误信息
+                    if "error" in result:
+                        self.log.error(
+                            f"插件 {plugin_name} 搜索失败: {result.get('error', '未知错误')}"
+                        )
+                        continue
+
+                    # 处理成功的搜索结果
+                    data_list = result.get("data", [])
+                    if data_list:
+                        results.extend(data_list)
+                        sources[plugin_name] = len(data_list)
+                    # 如果没有data字段但有其他数据，也认为是成功的结果
+                    elif result:  # 非空字典
+                        results.append(result)
+                        sources[plugin_name] = 1
 
         # 统一排序并提取前limit条数据
         if results:
             unified_result = {"data": results}
-            optimized_result = self.js_plugin_manager.optimize_search_results(
-                unified_result,
-                search_keyword=keyword,
-                limit=limit,
-                search_artist=artist,
-            )
-            results = optimized_result.get("data", [])
+            # 如果有JS插件管理器，使用它进行优化
+            if self.js_plugin_manager:
+                optimized_result = self.js_plugin_manager.optimize_search_results(
+                    unified_result,
+                    search_keyword=keyword,
+                    limit=limit,
+                    search_artist=artist,
+                )
+                results = optimized_result.get("data", [])
 
         return {
             "success": True,
@@ -614,8 +641,75 @@ class OnlineMusicService:
             "limit": limit,
         }
 
+    async def _search_all_plugins(self, keyword, artist, page, limit):
+        """搜索所有启用的插件（兼容旧方法）
+
+        Args:
+            keyword: 搜索关键词
+            artist: 艺术家名称
+            page: 页码
+            limit: 每页数量
+
+        Returns:
+            dict: 搜索结果
+        """
+        return await self._search_all_plugins_with_lx(keyword, artist, page, limit)
+
+    async def _search_specific_plugin_with_lx(self, plugin, keyword, artist, page, limit, **kwargs):
+        """搜索指定插件（包括洛雪插件）
+
+        Args:
+            plugin: 插件名称
+            keyword: 搜索关键词
+            artist: 艺术家名称
+            page: 页码
+            limit: 每页数量
+            **kwargs: 其他参数
+
+        Returns:
+            dict: 搜索结果
+        """
+        try:
+            # 首先检查统一插件管理器是否可用
+            if self.unified_plugin_manager:
+                # 使用统一插件管理器
+                results = await self.unified_plugin_manager.search(plugin, keyword, page, limit, **kwargs)
+            else:
+                # 如果统一插件管理器不可用，使用旧的搜索方法
+                results = self.js_plugin_manager.search(plugin, keyword, page, limit)
+
+            # 额外检查 resources 字段
+            # unified_plugin_manager.search 返回的是 List[Dict]，js_manager.search 返回的是 dict
+            if isinstance(results, list):
+                data_list = results
+            else:
+                data_list = results.get("data", [])
+            if data_list:
+                # 优化搜索结果排序
+                if self.js_plugin_manager:
+                    # 将结果包装为标准格式以供优化
+                    temp_result = {"data": data_list}
+                    optimized_result = self.js_plugin_manager.optimize_search_results(
+                        temp_result, search_keyword=keyword, limit=limit, search_artist=artist
+                    )
+                    data_list = optimized_result.get("data", [])
+                else:
+                    # 如果没有JS插件管理器，直接使用结果
+                    pass
+
+            return {
+                "success": True,
+                "data": data_list,
+                "total": len(data_list),
+                "page": page,
+                "limit": limit,
+            }
+        except Exception as e:
+            self.log.error(f"插件 {plugin} 搜索失败: {e}")
+            return {"success": False, "error": str(e)}
+
     async def _search_specific_plugin(self, plugin, keyword, artist, page, limit):
-        """搜索指定插件
+        """搜索指定插件（兼容旧方法）
 
         Args:
             plugin: 插件名称
@@ -627,27 +721,7 @@ class OnlineMusicService:
         Returns:
             dict: 搜索结果
         """
-        try:
-            results = self.js_plugin_manager.search(plugin, keyword, page, limit)
-
-            # 额外检查 resources 字段
-            data_list = results.get("data", [])
-            if data_list:
-                # 优化搜索结果排序
-                results = self.js_plugin_manager.optimize_search_results(
-                    results, search_keyword=keyword, limit=limit, search_artist=artist
-                )
-
-            return {
-                "success": True,
-                "data": results.get("data", []),
-                "total": results.get("total", 0),
-                "page": page,
-                "limit": limit,
-            }
-        except Exception as e:
-            self.log.error(f"插件 {plugin} 搜索失败: {e}")
-            return {"success": False, "error": str(e)}
+        return await self._search_specific_plugin_with_lx(plugin, keyword, artist, page, limit)
 
     async def _search_plugin_task(self, plugin_name, keyword, page, limit):
         """单个插件搜索任务"""
@@ -802,7 +876,7 @@ class OnlineMusicService:
         required_field: str = None,
         **kwargs,
     ):
-        """通用方法：调用 JS 插件的方法并返回结果
+        """通用方法：调用 JS 插件或洛雪插件的方法并返回结果
 
         Args:
             plugin_name: 插件名称
@@ -819,18 +893,47 @@ class OnlineMusicService:
             return {"success": False, "error": "Music item required"}
 
         # 检查插件管理器是否可用
-        if not self.js_plugin_manager:
-            return {"success": False, "error": "JS Plugin Manager not available"}
-
-        enabled_plugins = self.js_plugin_manager.get_enabled_plugins()
-        if plugin_name not in enabled_plugins:
-            return {"success": False, "error": f"Plugin {plugin_name} not enabled"}
+        if not self.js_plugin_manager and not self.unified_plugin_manager:
+            return {"success": False, "error": "插件管理器不可用"}
 
         try:
-            # 调用插件方法，传递额外参数
-            result = getattr(self.js_plugin_manager, method_name)(
-                plugin_name, music_item, **kwargs
-            )
+            # 首先尝试使用统一插件管理器
+            if self.unified_plugin_manager:
+                # 检查插件是否为洛雪插件
+                enabled_plugins = self.unified_plugin_manager.get_enabled_plugins()
+                if plugin_name in enabled_plugins:
+                    # 根据插件类型选择适当的调用方式
+                    if self.unified_plugin_manager._is_lx_plugin(plugin_name):
+                        # 如果是洛雪插件，使用洛雪插件管理器的方法
+                        method_map = {
+                            "get_media_source": self.unified_plugin_manager.get_media_source,
+                            "get_lyric": self.unified_plugin_manager.get_lyric,
+                            "get_album": self.unified_plugin_manager.get_album,
+                            "get_artist": self.unified_plugin_manager.get_artist,
+                            "get_recommend": self.unified_plugin_manager.get_recommend,
+                        }
+
+                        if method_name in method_map:
+                            result = await method_map[method_name](plugin_name, music_item, **kwargs)
+                        else:
+                            return {"success": False, "error": f"Method {method_name} not supported for LX plugins"}
+                    else:
+                        # 如果是JS插件，使用JS插件管理器
+                        result = getattr(self.js_plugin_manager, method_name)(
+                            plugin_name, music_item, **kwargs
+                        )
+                else:
+                    return {"success": False, "error": f"Plugin {plugin_name} not enabled"}
+            else:
+                # 如果没有统一插件管理器，使用旧的JS插件管理器
+                enabled_plugins = self.js_plugin_manager.get_enabled_plugins()
+                if plugin_name not in enabled_plugins:
+                    return {"success": False, "error": f"Plugin {plugin_name} not enabled"}
+
+                result = getattr(self.js_plugin_manager, method_name)(
+                    plugin_name, music_item, **kwargs
+                )
+
             if (
                 not result
                 or not result.get(result_key)

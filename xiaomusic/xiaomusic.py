@@ -83,6 +83,18 @@ class XiaoMusic:
             self.log.error(f"Failed to initialize JS Plugin Manager: {e}")
             self.js_plugin_manager = None
 
+        # 初始化洛雪插件管理器
+        try:
+            from xiaomusic.unified_plugin_manager import UnifiedPluginManager
+
+            self.unified_plugin_manager = UnifiedPluginManager(self.config.conf_path, log=self.log)
+            # 异步加载插件
+            asyncio.create_task(self._load_plugins_async())
+            self.log.info("Unified Plugin Manager initialized successfully")
+        except Exception as e:
+            self.log.error(f"Failed to initialize Unified Plugin Manager: {e}")
+            self.unified_plugin_manager = None
+
         # 初始化 JS 插件适配器
         try:
             from xiaomusic.js_adapter import JSAdapter
@@ -164,6 +176,14 @@ class XiaoMusic:
 
         if self.config.conf_path == self.config.music_path:
             self.log.warning("配置文件目录和音乐目录建议设置为不同的目录")
+
+    async def _load_plugins_async(self):
+        """异步加载所有插件"""
+        try:
+            await self.unified_plugin_manager.load_plugins()
+            self.log.info("All plugins loaded successfully")
+        except Exception as e:
+            self.log.error(f"Failed to load plugins: {e}")
 
     def init_config(self):
         if not os.path.exists(self.config.music_path):
