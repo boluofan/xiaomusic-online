@@ -184,6 +184,197 @@ class LXAdapter:
         推荐结果通常与搜索结果格式类似
         """
         return self.adapt_search_result(lx_result)
+
+    def adapt_playlist_result(self, lx_result: Dict) -> Dict:
+        """
+        将洛雪插件歌单结果转换为系统标准格式
+        洛雪插件返回格式示例:
+        {
+          "id": "playlist_123",
+          "name": "歌单名称",
+          "creator": "创建者",
+          "cover": "封面URL",
+          "description": "描述",
+          "playCount": 12345,
+          "songCount": 100,
+          "songs": [...]
+        }
+        """
+        if not lx_result:
+            return {}
+
+        adapted_result = {
+            "id": lx_result.get("id", ""),
+            "name": lx_result.get("name", ""),
+            "title": lx_result.get("name", ""),  # 兼容字段
+            "creator": lx_result.get("creator", ""),
+            "author": lx_result.get("creator", ""),  # 兼容字段
+            "cover": lx_result.get("cover", ""),
+            "coverUrl": lx_result.get("cover", ""),  # 兼容字段
+            "description": lx_result.get("description", ""),
+            "intro": lx_result.get("description", ""),  # 兼容字段
+            "playCount": lx_result.get("playCount", 0),
+            "play_count": lx_result.get("playCount", 0),  # 兼容字段
+            "songCount": lx_result.get("songCount", 0),
+            "song_count": lx_result.get("songCount", 0),  # 兼容字段
+            "platform": lx_result.get("source", ""),
+        }
+
+        # 处理歌曲列表
+        songs = lx_result.get("songs", [])
+        if songs:
+            adapted_result["songs"] = self.adapt_search_result(songs)
+
+        # 保留原始洛雪字段作为扩展信息
+        adapted_result["lx_data"] = lx_result
+
+        return adapted_result
+
+    def adapt_song_detail(self, lx_result: Dict) -> Dict:
+        """
+        将洛雪插件歌曲详情转换为系统标准格式
+        洛雪插件返回格式示例:
+        {
+          "id": "tx_123456",
+          "name": "歌曲名",
+          "singer": "歌手名",
+          "albumName": "专辑名",
+          "interval": "03:45",
+          "source": "tx",
+          "album": {
+            "id": "album_123",
+            "name": "专辑名",
+            "pic": "封面URL"
+          },
+          "artist": {
+            "id": "artist_123",
+            "name": "歌手名",
+            "pic": "头像URL"
+          }
+        }
+        """
+        if not lx_result:
+            return {}
+
+        adapted_result = {
+            "id": lx_result.get("id", ""),
+            "title": lx_result.get("name", ""),
+            "name": lx_result.get("name", ""),  # 兼容字段
+            "artist": lx_result.get("singer", ""),
+            "singer": lx_result.get("singer", ""),  # 兼容字段
+            "album": lx_result.get("albumName", ""),
+            "albumName": lx_result.get("albumName", ""),  # 兼容字段
+            "platform": lx_result.get("source", ""),
+            "source": lx_result.get("source", ""),  # 兼容字段
+        }
+
+        # 处理时长
+        interval_str = lx_result.get("interval")
+        if interval_str:
+            try:
+                parts = interval_str.split(':')
+                if len(parts) == 2:
+                    minutes = int(parts[0])
+                    seconds = int(parts[1])
+                    adapted_result["duration"] = minutes * 60 + seconds
+                elif len(parts) == 3:
+                    hours = int(parts[0])
+                    minutes = int(parts[1])
+                    seconds = int(parts[2])
+                    adapted_result["duration"] = hours * 3600 + minutes * 60 + seconds
+            except (ValueError, AttributeError):
+                adapted_result["duration"] = 0
+
+        # 处理专辑信息
+        album_info = lx_result.get("album")
+        if album_info:
+            adapted_result["albumInfo"] = {
+                "id": album_info.get("id", ""),
+                "name": album_info.get("name", ""),
+                "cover": album_info.get("pic", "")
+            }
+
+        # 处理艺术家信息
+        artist_info = lx_result.get("artist")
+        if artist_info:
+            adapted_result["artistInfo"] = {
+                "id": artist_info.get("id", ""),
+                "name": artist_info.get("name", ""),
+                "avatar": artist_info.get("pic", "")
+            }
+
+        # 处理封面
+        pic = lx_result.get("pic")
+        if pic:
+            adapted_result["cover"] = pic
+            adapted_result["coverUrl"] = pic
+
+        # 保留原始洛雪字段作为扩展信息
+        adapted_result["lx_data"] = lx_result
+
+        return adapted_result
+
+    def adapt_comment_result(self, lx_result: List[Dict]) -> List[Dict]:
+        """
+        将洛雪插件评论结果转换为系统标准格式
+        """
+        if not lx_result:
+            return []
+
+        adapted_result = []
+        for item in lx_result:
+            adapted_item = {
+                "id": item.get("id", ""),
+                "content": item.get("content", ""),
+                "text": item.get("content", ""),  # 兼容字段
+                "userId": item.get("userId", ""),
+                "userName": item.get("userName", ""),
+                "nickname": item.get("userName", ""),  # 兼容字段
+                "avatar": item.get("avatar", ""),
+                "likeCount": item.get("likeCount", 0),
+                "liked_count": item.get("likeCount", 0),  # 兼容字段
+                "time": item.get("time", 0),
+                "platform": item.get("source", ""),
+            }
+
+            # 处理时间戳转换
+            time_value = item.get("time")
+            if time_value:
+                try:
+                    adapted_item["timestamp"] = int(time_value)
+                except (ValueError, TypeError):
+                    adapted_item["timestamp"] = 0
+
+            # 保留原始洛雪字段作为扩展信息
+            adapted_item["lx_data"] = item
+
+            adapted_result.append(adapted_item)
+
+        return adapted_result
+
+    def adapt_hot_search(self, lx_result: List[Dict]) -> List[Dict]:
+        """
+        将洛雪插件热搜结果转换为系统标准格式
+        """
+        if not lx_result:
+            return []
+
+        adapted_result = []
+        for item in lx_result:
+            adapted_item = {
+                "keyword": item.get("keyword", ""),
+                "content": item.get("keyword", ""),  # 兼容字段
+                "score": item.get("score", 0),
+                "hotValue": item.get("score", 0),  # 兼容字段
+                "platform": item.get("source", ""),
+            }
+
+            # 保留原始洛雪字段作为扩展信息
+            adapted_item["lx_data"] = item
+
+            adapted_result.append(adapted_item)
+
+        return adapted_result
     
     def adapt_to_lx_format(self, system_result: Dict) -> Dict:
         """
